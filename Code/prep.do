@@ -13,7 +13,7 @@
 clear
 cd "/users/will/Dropbox/LIHTC/"
 cap log close
-log using "./Code/county-year.log", replace
+log using ".//LIHTC_git/Code/county-year.log", replace
 
 * Set gloabl variable defining the range of years to use (for CQ data)
 global years "1987" "1988" "1989" "1990" "1991" "1992" "1993" "1994" "1995" "1996" "1997" "1998" "1999" "2000" "2001" "2002" "2003" "2004" "2005" "2006" "2007" "2008" "2009" "2010" "2011" "2012" "2013" "2014" "2015"
@@ -166,6 +166,4 @@ drop one two three
 
 save "./Data/CQ/filled", replace
 
-* FAKE CHANGE
-* ANOTHER FAKE CHANGE
-* yet another fake change
+* fake change
