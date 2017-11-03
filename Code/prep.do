@@ -13,7 +13,7 @@
 clear
 cd "/users/will/Dropbox/LIHTC/"
 cap log close
-log using ".//LIHTC_git/Code/county-year.log", replace
+log using "./Code/Logs/prep.log", replace
 
 * Set gloabl variable defining the range of years to use (for CQ data)
 global years "1987" "1988" "1989" "1990" "1991" "1992" "1993" "1994" "1995" "1996" "1997" "1998" "1999" "2000" "2001" "2002" "2003" "2004" "2005" "2006" "2007" "2008" "2009" "2010" "2011" "2012" "2013" "2014" "2015"
@@ -25,8 +25,8 @@ save "./Data/fips-county", replace
 * Prep HUD data (uses FIPS codes not counties)
 import delimited "./Data/LIHTCPUB.csv", clear
 merge m:1 st2010 cnty2010 using "./Data/fips-county" 							// 1.8 percent of obs not matched
-* About half unmatched from master (no fips codes), half from using 
-* (no LIHTC projects in those counties).
+* 																				// About half unmatched from master (no fips codes), half from using 
+* 																				// (no LIHTC projects in those counties).
 drop if _merge == 1 | _merge == 2
 drop _merge
 rename yr_alloc year
@@ -39,10 +39,9 @@ replace county = subinstr(county," Parish","",.)
 replace county = subinstr(county," Municipio","",.)
 save "./Data/LIHTC", replace
 
-
 * Can now use the CQ data, which is only specified at the county level
 import delimited "./Raw/CQ_gub_county/2016", varnames(5) clear
-keep state county winningparty dem rep
+keep state county winningparty dem rep other
 gen year = 2016
 save "./Data/CQ/2016", replace
 save "./Data/CQ/full", replace
@@ -53,11 +52,12 @@ program buildeach_CQ
 	syntax [, filename(string) maxrow(string)]
 	foreach thing in `filename' {
 		import delimited "./Raw/CQ_gub_county/`thing'", varnames(5) clear
-		keep state county winningparty dem rep
+		keep state county winningparty dem rep other
 		gen year = `thing'
 		save "./Data/CQ/`thing'", replace
 	}
 end
+
 buildeach_CQ, filename("$years")
 
 * A program to combine all years' county-level gub data
@@ -69,13 +69,14 @@ program buildbig_CQ
 		append using "./Data/CQ/`year'"
 	}
 end
+
 buildbig_CQ, filename("$years")
-drop if dem == . 																// drops rows full of citing info
+drop if dem == . & rep == . & other == .										// drops rows full of citing info
 recast str2 state
 replace county = proper(county)
 
 * Fill in off-election years
-global each4_1986 "AK" "AL" "AR" "AZ" "CA" "CO" "CT" "FL" "GA" "HI" "IA" "ID" "IL" "KS" "MA" "MD" "ME" "MI" "MN" "NE" "NM" "NV" "NY" "OH" "OK" "PA" "SC" "SD" "TN" "TX" "WY"
+global each4_1986 "AK" "AL" "AR" "CA" "CO" "CT" "FL" "GA" "HI" "IA" "ID" "IL" "KS" "MA" "MD" "ME" "MI" "MN" "NE" "NM" "NV" "NY" "OH" "OK" "PA" "SC" "SD" "TN" "TX" "WY"
 global each4_1984 "IN" "MO" "MT" "NC" "ND" "WA" 
 global each4_1987 "KY" "LA" "MS"
 global each4_1985 "NJ" "VA"
@@ -164,6 +165,28 @@ expand 2 if two ==1 & year != 2010, generate(three)								// Don't want to copy
 replace year = year+1 if three == 1
 drop one two three
 
+expand 2 if state == "AZ" & year, generate(one)									// AZ has elections every 4 years starting in 1986 but had a runoff election in 1991.
+replace year = year+1 if one == 1
+expand 2 if one == 1, generate(two)
+replace year = year+1 if two == 1
+expand 2 if two == 1 & year != 1993, generate(three)							// Don't want to copy 1993 data to 1994, an election year
+replace year = year+1 if three == 1
+drop one two three
+
+* Very weird stuff happening in some of the CQ data for a few MA counties. Drop for now.
+drop if state == "MA" & county == "Barnstable" & year <= 1997 & year >= 1994
+drop if state == "MA" & county == "Franklin" & year <= 1997 & year >= 1994
+drop if state == "MA" & county == "Plymouth" & year <= 1997 & year >= 1994
+drop if state == "MA" & county == "Worcester" & year <= 1997 & year >= 1994
+
 save "./Data/CQ/filled", replace
 
-* fake change
+import delimited "./Raw/govparty_stateyear", clear
+rename ïyear year
+save "./Data/govparty_stateyear", replace
+
+use "./Data/CQ/filled", clear
+merge m:1 state year using "./Data/govparty_stateyear"							// unmatched data: from years before LIHTC data starts (1987) and special election years (missing from CQ). Drop these for now.
+drop if _merge == 2
+drop _merge
+save "./Data/fullpolitical", replace

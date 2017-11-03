@@ -1,0 +1,33 @@
+--------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/will/Dropbox/LIHTC/Code/Logs/count-support.log
+  log type:  text
+ opened on:   3 Nov 2017, 14:35:20
+
+. 
+. use "./Data/LIHTC", clear
+
+. collapse (count) count=hud, by(state county year)
+
+. save "./Data/countbycnty-yr", replace
+file ./Data/countbycnty-yr.dta saved
+
+. 
+. use "./Data/countbycnty-yr", clear
+
+. merge 1:1 state county year using "./Data/fullpolitical"
+(note: variable year was int, now float to accommodate using data's values)
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                        75,735
+        from master                     2,570  (_merge==1)
+        from using                     73,165  (_merge==2)
+
+    matched                            16,605  (_merge==3)
+    -----------------------------------------
+
+. 
+. 
+end of do-file
+
